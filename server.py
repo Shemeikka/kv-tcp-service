@@ -17,7 +17,7 @@ class Server(object):
     """
     def __init__(self):
         # Line ending which is appended to the message when response to client
-        self.le = "\r\n"
+        self.le = "\n"
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setblocking(0)
         # Sockets from which we expect to read
