@@ -74,4 +74,10 @@ class Command(object):
         self._value = ""
 
     def __str__(self):
-        return "{} => {} - {}".format(self.cmd(), self.key(), self.value())
+        value = "{}".format(self.cmd())
+        if self.key():
+            value += " => {}".format(self.key())
+            if self.value():
+                value += " => {}".format(self.value())
+        return value
+        
