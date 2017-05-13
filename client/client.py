@@ -7,7 +7,7 @@ import json
 import sys
 
 
-logger = logging.getLogger("kv-srv.client")
+logger = logging.getLogger("kv.client")
 
 
 def send_msg(sock, msg):

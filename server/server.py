@@ -8,7 +8,7 @@ import json
 from .store import Store
 from .command import Command
 
-logger = logging.getLogger("kv-srv")
+logger = logging.getLogger("kv.server")
 
 # Global key-value store
 STORE = Store()
