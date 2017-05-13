@@ -98,7 +98,7 @@ def start(address, port):
             for sock in readable:
                 # Receive data from client
                 try:
-                    sock_data = sock.recv(recv_buffer)
+                    sock_data = sock.recv(recv_buffer).decode()
                 except socket.error as err:
                     raise Exception("Closing {} after exception {}".format(sock.getpeername(), err))
 
@@ -140,7 +140,7 @@ def set_logging(log_level):
     """
     Setup logging
     """
-    formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s | %(message)s')
+    formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s [%(lineno)s] | %(message)s')
 
     logging_level = getattr(logging, log_level.upper())
 
@@ -159,7 +159,7 @@ def main():
 
     args = parser.parse_args()
     set_logging(args.log_level)
-    
+
     start(args.address, args.port)
 
 if __name__ == '__main__':

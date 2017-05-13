@@ -36,13 +36,15 @@ class Server(object):
         """
 
         try:
-            data = json.dumps(msg)
+            json_data = json.dumps(msg)
         except ValueError:
-            data = json.dumps("Couldn't encode response in Server")
+            json_data = json.dumps("Couldn't encode response in Server")
+
+        data = json_data.encode("utf-8") + self.le.encode("utf-8")
 
         try:
             # Always add line ending to the message
-            connection.send(data+self.le)
+            connection.send(data)
         except socket.error:
             # Maybe a broken socket connection,
             connection.close()
@@ -177,7 +179,7 @@ class Server(object):
                 else:
                     # Receive data from client
                     try:
-                        sock_data = sock.recv(recv_buffer)
+                        sock_data = sock.recv(recv_buffer).decode()
                     except socket.error as err:
                         logger.error("Closing %s after exception %s", sock.getpeername(), err)
                         clean_up(sock)
@@ -240,7 +242,7 @@ def set_logging(log_level):
     """
     Setup logging
     """
-    formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s | %(message)s')
+    formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s [%(lineno)s] | %(message)s')
 
     logging_level = getattr(logging, log_level.upper())
 
