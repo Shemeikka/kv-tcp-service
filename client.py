@@ -1,9 +1,14 @@
+import logging
 import argparse
 import socket
 import datetime
 import select
 import json
 import sys
+
+
+logger = logging.getLogger("kv-srv.client")
+
 
 def send_msg(sock, msg):
     """
@@ -14,9 +19,11 @@ def send_msg(sock, msg):
     :return:
     """
     try:
+        msg = msg.encode("utf-8")
+        logger.debug("Sending %s", msg)
         sock.sendall(msg)
-    except socket.error as e:
-        raise socket.error("Couldn't send message: {}".format(e))
+    except socket.error as err:
+        raise socket.error("Couldn't send message: {}".format(err))
 
 def parse_data(json_data):
     """
@@ -38,7 +45,7 @@ def handle_count(data):
     :return:
     """
     try:
-        print("Data: {}".format(data))
+        logger.debug("Data: %s", data)
         # Key was not found, so create new key
         if data["status"] == "error":
             return {"cmd": "put", "msg": 'put\ntick\n{"count": 0}\n'}
@@ -59,7 +66,7 @@ def start(address, port):
     try:
         sock = socket.create_connection((address, port))
     except socket.error:
-        print("Remote host is not responding")
+        logger.error("Remote host is not responding")
         sys.exit(0)
 
     # Buffer size for reading data from socket
@@ -82,18 +89,18 @@ def start(address, port):
         while True:
             try:
                 readable, writable, exceptional = select.select(inputs, [], [], 0.01)
-            except select.error, e:
-                raise Exception("Error on select: {}".format(e))
-            except socket.error, e:
-                raise Exception("Socket error on select: {}".format(e))
+            except select.error as err:
+                raise Exception("Error on select: {}".format(err))
+            except socket.error as err:
+                raise Exception("Socket error on select: {}".format(err))
 
             # Handle inputs
             for sock in readable:
                 # Receive data from client
                 try:
                     sock_data = sock.recv(recv_buffer)
-                except socket.error as e:
-                    raise Exception("Closing {} after exception {}".format(sock.getpeername(), e))
+                except socket.error as err:
+                    raise Exception("Closing {} after exception {}".format(sock.getpeername(), err))
 
                 if not sock_data:
                     continue
@@ -122,18 +129,38 @@ def start(address, port):
                 send_msg(sock, get_tick)
 
     except KeyboardInterrupt:
-        print("KeyboardInterrupt => Cleaning up and quitting")
+        logger.info("KeyboardInterrupt => Cleaning up and quitting")
         sock.close()
-    except Exception as e:
-        print(e)
+    except Exception as err:
+        logger.error(err)
         sock.close()
         sys.exit(1)
 
+def set_logging(log_level):
+    """
+    Setup logging
+    """
+    formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s | %(message)s')
 
-if __name__ == '__main__':
+    logging_level = getattr(logging, log_level.upper())
+
+    logger.setLevel(logging_level)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    logger.addHandler(stream_handler)
+
+def main():
     parser = argparse.ArgumentParser(description='Key/Value TCP client.')
-    parser.add_argument('-a', '--address', help='Address (e.q. localhost)', required=True)
-    parser.add_argument('-p', '--port', help='Port number', type=int,  required=True)
+    parser.add_argument('-a', '--address', help='Address (e.q. localhost)', default="localhost")
+    parser.add_argument('-p', '--port', help='Port number', type=int,  default=5000)
+    parser.add_argument('-l', '--log_level', help='Logging level', default="info")
 
     args = parser.parse_args()
+    set_logging(args.log_level)
+    
     start(args.address, args.port)
+
+if __name__ == '__main__':
+    main()
