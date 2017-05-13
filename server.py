@@ -1,3 +1,4 @@
+import logging
 import select
 import socket
 import datetime
@@ -6,6 +7,8 @@ import store
 import json
 
 from command import Command
+
+logger = logging.getLogger("kv-srv")
 
 # Global key-value store
 STORE = store.Store()
@@ -118,7 +121,7 @@ class Server(object):
         server_address = (address, port)
         self.server.bind(server_address)
 
-        print("[{}] Starting server on {}:{}".format(datetime.datetime.now(), address, port))
+        logger.info("Starting server on %s:%s", address, port)
         self.server.listen(5)
 
         # Holds client data
@@ -152,14 +155,14 @@ class Server(object):
         while True:
             try:
                 readable, writable, exceptional = select.select(self.inputs, [], [], 0.01)
-            except select.error, e:
-                print("Error on select: {}".format(e))
+            except select.error as err:
+                logger.error("Error on select: %s", err)
                 break
-            except socket.error, e:
-                print("Socket error on select: {}".format(e))
+            except socket.error as err:
+                logger.error("Socket error on select: %s", err)
                 break
             except KeyboardInterrupt:
-                print("KeyboardInterrupt => Cleaning up and quitting")
+                logger.info("KeyboardInterrupt => Cleaning up and quitting")
                 clean_all()
                 break
 
@@ -175,18 +178,18 @@ class Server(object):
                     # Receive data from client
                     try:
                         sock_data = sock.recv(recv_buffer)
-                    except socket.error as e:
-                        print("Closing {} after exception {}".format(sock.getpeername(), e))
+                    except socket.error as err:
+                        logger.error("Closing %s after exception %s", sock.getpeername(), err)
                         clean_up(sock)
                         continue
                     except KeyboardInterrupt:
-                        print("KeyboardInterrupt => Cleaning up and quitting")
+                        logger.info("KeyboardInterrupt => Cleaning up and quitting")
                         clean_all()
                         break
 
                     if not sock_data:
                         # Interpret empty result as closed connection
-                        print("Closing {} after reading no data".format(sock.getpeername()))
+                        logger.debug("Closing %s after reading no data", sock.getpeername())
                         clean_up(sock)
                     else:
                         # Data can be either a single character (e.q. data from telnet) or multiple characters but we
@@ -204,16 +207,16 @@ class Server(object):
                             continue
 
                         if resp["status"] == "error":
-                            print("Error: {}".format(resp["value"]))
+                            logger.error("Error: %s", resp["value"])
                             client_data[sock] = []
                             self.send_msg(sock, resp)
                             continue
 
                         command = resp["cmd"]
 
-                        print("[{}] [{}] {}".format(datetime.datetime.now(), sock.getpeername(), command))
+                        logger.info("[%s] %s", sock.getpeername(), command)
                         if command.is_exit():
-                            print("Closing {} since exit command".format(sock.getpeername()))
+                            logger.info("Closing %s since exit command", sock.getpeername())
                             clean_up(sock)
                         elif command.is_get():
                             store_data = STORE.get(command.key())
@@ -230,17 +233,36 @@ class Server(object):
 
             # Handle "exceptional conditions"
             for sock in exceptional:
-                print("Exception for connection {}".format(sock.getpeername()))
+                logger.error("Exception for connection %s", sock.getpeername())
                 clean_up(sock)
 
+def set_logging(log_level):
+    """
+    Setup logging
+    """
+    formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s | %(message)s')
 
+    logging_level = getattr(logging, log_level.upper())
 
-if __name__ == '__main__':
+    logger.setLevel(logging_level)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    logger.addHandler(stream_handler)
+
+def main():
     parser = argparse.ArgumentParser(description='Key/Value TCP service.')
-    parser.add_argument('-a', '--address', help='Address (e.q. localhost)', required=True)
-    parser.add_argument('-p', '--port', help='Port number', type=int, required=True)
+    parser.add_argument('-a', '--address', help='Address (e.q. localhost)', default="localhost")
+    parser.add_argument('-p', '--port', help='Port number', type=int, default=5000)
+    parser.add_argument('-l', '--log_level', help='Logging level', default="info")
 
     args = parser.parse_args()
 
+    set_logging(args.log_level)
+
     server = Server()
     server.start(args.address, args.port)
+
+if __name__ == '__main__':
+    main()
