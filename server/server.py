@@ -3,15 +3,15 @@ import select
 import socket
 import datetime
 import argparse
-import store
 import json
 
-from command import Command
+from .store import Store
+from .command import Command
 
 logger = logging.getLogger("kv-srv")
 
 # Global key-value store
-STORE = store.Store()
+STORE = Store()
 
 
 class Server(object):
